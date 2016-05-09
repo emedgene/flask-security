@@ -25,7 +25,7 @@ from .views import create_blueprint
 from .forms import LoginForm, ConfirmRegisterForm, RegisterForm, \
     ForgotPasswordForm, ChangePasswordForm, ResetPasswordForm, \
     SendConfirmationForm, PasswordlessLoginForm, TwoFactorVerifyCodeForm, \
-    TwoFactorSetupForm, TwoFactorChangeMethodForm
+    TwoFactorSetupForm, TwoFactorChangeMethodVerifyPasswordForm, TwoFactorRescueForm
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])
@@ -59,12 +59,18 @@ _default_config = {
     'RESET_PASSWORD_TEMPLATE': 'security/reset_password.html',
     'CHANGE_PASSWORD_TEMPLATE': 'security/change_password.html',
     'SEND_CONFIRMATION_TEMPLATE': 'security/send_confirmation.html',
+    'TWO_FACTOR_LOGIN_USER_TEMPLATE': 'security/two_factor_login.html',
+    'TWO_FACTOR_SEND_PHONE_TEMPLATE': 'security/two_factor_enter_phone.html',
+    'TWO_FACTOR_VERIFY_CODE_TEMPLATE': 'security/two_factor_verify_code.html',
+    'TWO_FACTOR_CHOOSE_METHOD_TEMPLATE': 'security/two_factor_choose_method.html',
+    'TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE': 'security/two_factor_change_method_password_confimration.html',
     'SEND_LOGIN_TEMPLATE': 'security/send_login.html',
     'CONFIRMABLE': False,
     'REGISTERABLE': False,
     'RECOVERABLE': False,
     'TRACKABLE': False,
     'PASSWORDLESS': False,
+    'TWO_FACTOR': False,
     'CHANGEABLE': False,
     'SEND_REGISTER_EMAIL': True,
     'SEND_PASSWORD_CHANGE_EMAIL': True,
@@ -91,6 +97,7 @@ _default_config = {
     'EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE': 'Your password has been changed',
     'EMAIL_SUBJECT_PASSWORD_RESET': 'Password reset instructions',
     'EMAIL_SUBJECT_TWO_FACTOR': 'Two Factor Authentication',
+    'EMAIL_SUBJECT_TWO_FACTOR_RESCUE': 'Two Factor Authenticaion Rescue',
     'USER_IDENTITY_ATTRIBUTES': ['email'],
     'PASSWORD_SCHEMES': [
         'bcrypt',
@@ -103,13 +110,10 @@ _default_config = {
         'plaintext'
     ],
     'DEPRECATED_PASSWORD_SCHEMES': ['auto'],
-    'TWO_FACTOR_ENABLED_METHODS': ['mail', 'google_authenticator'],
-    'TWO_FACTOR': False,
-    'TWO_FACTOR_LOGIN_USER_TEMPLATE': 'security/two_factor_login.html',
-    'TWO_FACTOR_SEND_PHONE_TEMPLATE': 'security/two_factor_enter_phone.html',
-    'TWO_FACTOR_VERIFY_CODE_TEMPLATE': 'security/two_factor_verify_code.html',
-    'TWO_FACTOR_CHOOSE_METHOD_TEMPLATE': 'security/two_factor_choose_method.html',
-    'TWO_FACTOR_CHANGE_PASSWORD_TEMPLATE': 'security/two_factor_change_method.html',
+    'TWO_FACTOR_RESCUE_MAIL': 'no-reply@localhost',
+    'TWO_FACTOR_ENABLED_METHODS': ['mail', 'google_authenticator'],  # ,'sms'
+    'TWO_FACTOR_URI_SERVICE_NAME': 'serive_name',
+    'TWO_FACTOR_UTI_PROTOCOL': 'totp', # or hotp
     'TWO_FACTOR_SMS_SERVICE': 'Dummy',
     'TWO_FACTOR_SMS_SERVICE_CONFIG': {
         'ACCOUNT_SID': None,
@@ -192,10 +196,16 @@ _default_messages = {
         'Invalid Token', 'error'),
     'TWO_FACTOR_LOGIN_SUCCESSFUL': (
         'Your token have been confirmed. You have successfuly logged in', 'success'),
-    'TWO_FACTOR_METHOD_CHANGE_FAILED': (
-        'Invalid password.', 'error'),
-    'TWO_FACTOR_METHOD_IS_THE_SAME': (
-        'Your new method must be different than your previous method.', 'error'),
+    'TWO_FACTOR_CHANGE_METHOD_FAILED': (
+        'Invalid password, two factor method was not changed.', 'error'),
+    'TWO_FACTOR_CHANGE_METHOD_SUCCESSFUL': (
+        'You successfully changed your two factor method.', 'success'),
+    'TWO_FACTOR_PASSWORD_CONFIRMATION_NEEDED': (
+        'Password confirmation is needed in order to access page', 'error'),
+    'TWO_FACTOR_PERMISSION_DENIED': (
+        'You do not have permissions to access this page at this moment', 'error'),
+    'TWO_FACTOR_BAD_CONFIGURATIONS': (
+        'method was not enabled through configurations', 'error')
 }
 
 _default_forms = {
@@ -209,7 +219,8 @@ _default_forms = {
     'passwordless_login_form': PasswordlessLoginForm,
     'two_factor_verify_code_form': TwoFactorVerifyCodeForm,
     'two_factor_setup_form': TwoFactorSetupForm,
-    'two_factor_change_method_form': TwoFactorChangeMethodForm,
+    'two_factor_change_method_verify_password_form': TwoFactorChangeMethodVerifyPasswordForm,
+    'two_factor_rescue_form': TwoFactorRescueForm
 }
 
 
@@ -432,7 +443,8 @@ class Security(object):
                  reset_password_form=None, change_password_form=None,
                  send_confirmation_form=None, passwordless_login_form=None,
                  two_factor_verify_code_form=None, two_factor_setup_form=None,
-                 two_factor_change_method_form=None, anonymous_user=None):
+                 two_factor_change_method_verify_password_form=None, anonymous_user=None,
+                 two_factor_rescue_form=None):
         """Initializes the Flask-Security extension for the specified
         application and datastore implentation.
 
@@ -459,10 +471,11 @@ class Security(object):
                            change_password_form=change_password_form,
                            send_confirmation_form=send_confirmation_form,
                            passwordless_login_form=passwordless_login_form,
-                           anonymous_user=anonymous_user,
                            two_factor_verify_code_form=two_factor_verify_code_form,
                            two_factor_setup_form=two_factor_setup_form,
-                           two_factor_change_method_form=two_factor_change_method_form)
+                           two_factor_change_method_verify_password_form=two_factor_change_method_verify_password_form,
+                           two_factor_rescue_form=two_factor_rescue_form,
+                           anonymous_user=anonymous_user)
 
         if register_blueprint:
             app.register_blueprint(create_blueprint(state, __name__))

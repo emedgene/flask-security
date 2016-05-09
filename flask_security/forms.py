@@ -40,7 +40,7 @@ _default_field_labels = {
     'send_login_link': 'Send Login Link',
     'phone': 'Phone Number',
     'change_method': 'Change Method',
-    'verify_passowrd': 'Verify Method'
+    'verify_password': 'Verify Method'
 }
 
 
@@ -311,7 +311,6 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
         if not super(TwoFactorSetupForm, self).validate():
             return False
         if not self.user.is_active:
-            # self.email.errors.append(get_message('DISABLED_ACCOUNT')[0])
             return False
         return True
 
@@ -320,7 +319,7 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
     """The Two Factor token validation form"""
 
     code = StringField(get_form_field_label('code'))
-    submit = SubmitField(get_form_field_label('submit_code'))
+    submit = SubmitField(get_form_field_label('submit code'))
 
     def __init__(self, *args, **kwargs):
         super(TwoFactorVerifyCodeForm, self).__init__(*args, **kwargs)
@@ -329,21 +328,38 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
         if not super(TwoFactorVerifyCodeForm, self).validate():
             return False
         if not self.user.is_active:
-            # self.email.errors.append(get_message('DISABLED_ACCOUNT')[0])
             return False
         return True
 
 
-class TwoFactorChangeMethodForm(Form, PasswordFormMixin):
+class TwoFactorChangeMethodVerifyPasswordForm(Form, PasswordFormMixin):
     """The default change password form"""
 
-    submit = SubmitField(get_form_field_label('verify_passowrd'))
+    submit = SubmitField(get_form_field_label('verify_password'))
 
     def validate(self):
-        if not super(TwoFactorChangeMethodForm, self).validate():
+        if not super(TwoFactorChangeMethodVerifyPasswordForm, self).validate():
             return False
 
         if not verify_and_update_password(self.password.data, current_user):
             self.password.errors.append(get_message('INVALID_PASSWORD')[0])
+            return False
+        return True
+
+
+class TwoFactorRescueForm(Form, UserEmailFormMixin):
+    """The Two Factor Rescue validation form"""
+
+    help_setup = RadioField('Trouble Accessing Your Account?', choices=[('lost_device', 'Can not access access mobile device?'),
+                                         ('no_mail_access', 'Can not access mail account?')])
+    submit = SubmitField(get_form_field_label('sumbit'))
+
+    def __init__(self, *args, **kwargs):
+        super(TwoFactorRescueForm, self).__init__(*args, **kwargs)
+
+    def validate(self):
+        if not super(TwoFactorRescueForm, self).validate():
+            return False
+        if not self.user.is_active:
             return False
         return True

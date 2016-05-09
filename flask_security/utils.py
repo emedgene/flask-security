@@ -8,7 +8,7 @@
     :copyright: (c) 2012 by Matt Wright.
     :license: MIT, see LICENSE for more details.
 """
-
+import abc
 import base64
 import hashlib
 import hmac
@@ -30,6 +30,9 @@ from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.local import LocalProxy
 
 from .signals import user_registered, login_instructions_sent, reset_password_instructions_sent
+
+import twilio
+from twilio.rest import TwilioRestClient
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])
@@ -437,3 +440,42 @@ def capture_reset_password_requests(reset_password_sent_at=None):
         yield reset_requests
     finally:
         reset_password_instructions_sent.disconnect(_on)
+
+
+class SmsSenderBaseClass(object):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self):
+        pass
+
+    @abc.abstractmethod
+    def send_sms(self, from_number, to_number, msg):
+        """ Abstract method for sensing sms messages"""
+        return
+
+class TwilioSmsSender(SmsSenderBaseClass):
+    def __init__(self):
+        self.account_sid = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['ACCOUNT_SID']
+        self.auth_token = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['AUTH_TOKEN']
+
+    def send_sms(self, from_number, to_number, msg):
+        client = TwilioRestClient(self.account_sid, self.auth_token)
+        client.messages.create(
+            to=to_number,
+            from_=from_number,
+            body=msg,)
+
+class DummySmsSender(SmsSenderBaseClass):
+    def send_sms(self, from_number, to_number, msg):
+        return
+
+
+class SmsSenderFactory(object):
+    senders = {
+        'Twilio': TwilioSmsSender,
+        'Dummy': DummySmsSender
+    }
+
+    @classmethod
+    def createSender(cls, name, *args, **kwargs):
+        return cls.senders[name](*args, **kwargs)
