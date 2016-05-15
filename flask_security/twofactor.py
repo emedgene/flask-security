@@ -5,7 +5,7 @@
 
     Flask-Security two_factor module
 
-    :copyright: (c) 2016 by Gal Stainfeld.
+    :copyright: (c) 2016 by Gal Stainfeld, at Emedgene
 """
 
 import base64
