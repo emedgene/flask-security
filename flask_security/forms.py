@@ -11,7 +11,7 @@
 
 import inspect
 
-from flask import request, current_app, flash
+from flask import request, current_app, flash, session
 from flask_wtf import Form as BaseForm
 from wtforms import StringField, PasswordField, validators, \
     SubmitField, HiddenField, BooleanField, ValidationError, Field, RadioField
@@ -19,7 +19,9 @@ from flask_login import current_user
 from werkzeug.local import LocalProxy
 
 from .confirmable import requires_confirmation
-from .utils import verify_and_update_password, get_message, config_value, validate_redirect_url
+from .utils import verify_and_update_password, get_message, config_value, validate_redirect_url, \
+    do_flash
+from .twofactor import verify_totp, get_process_status
 
 # Convenient reference
 _datastore = LocalProxy(lambda: current_app.extensions['security'].datastore)
@@ -298,7 +300,7 @@ class ChangePasswordForm(Form, PasswordFormMixin):
 class TwoFactorSetupForm(Form, UserEmailFormMixin):
     """The Two Factor token validation form"""
 
-    setup = RadioField('Label', choices=[('mail', 'Set Up Using Mail'),
+    setup = RadioField('Available Methods', choices=[('mail', 'Set Up Using Mail'),
                                         ('google_authenticator', 'Set Up Using Google Authenticator'),
                                         ('sms', 'Set Up Using SMS')])
     phone = StringField(get_form_field_label('phone'))
@@ -308,9 +310,10 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
         super(TwoFactorSetupForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        if not super(TwoFactorSetupForm, self).validate():
+        # another validation for the form
+        if not self.data.has_key('setup'):
             return False
-        if not self.user.is_active:
+        if self.data['setup'] not in config_value('TWO_FACTOR_ENABLED_METHODS'):
             return False
         return True
 
@@ -325,10 +328,24 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
         super(TwoFactorVerifyCodeForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        if not super(TwoFactorVerifyCodeForm, self).validate():
+        # security check - make sure all steps in process up until now were done
+        current_process = get_process_status()
+        if current_process is False or 'totp' not in session:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
-        if not self.user.is_active:
+        # make sure that the earlier stages of this flow of action were done
+        if 'code' not in self:
             return False
+        # codes sent by sms or mail will be valid for another window cycle (30 seconds from each side of current time)
+        if 'primary_method' in session and session['primary_method'] == 'google_authenticator':
+            self.window = 0
+        else:
+            self.window = 1
+        # verify entered token with user's totp secret
+        if not verify_totp(token=self.code.data, user_totp=session['totp'], window=self.window):
+            do_flash(*get_message('TWO_FACTOR_INVALID_TOKEN'))
+            return False
+
         return True
 
 
@@ -350,16 +367,16 @@ class TwoFactorChangeMethodVerifyPasswordForm(Form, PasswordFormMixin):
 class TwoFactorRescueForm(Form, UserEmailFormMixin):
     """The Two Factor Rescue validation form"""
 
-    help_setup = RadioField('Trouble Accessing Your Account?', choices=[('lost_device', 'Can not access access mobile device?'),
+    help_setup = RadioField('Trouble Accessing Your Account?',
+                                choices=[('lost_device', 'Can not access mobile device?'),
                                          ('no_mail_access', 'Can not access mail account?')])
-    submit = SubmitField(get_form_field_label('sumbit'))
+    submit = SubmitField(get_form_field_label('submit'))
 
     def __init__(self, *args, **kwargs):
         super(TwoFactorRescueForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        if not super(TwoFactorRescueForm, self).validate():
-            return False
-        if not self.user.is_active:
+        if 'username' not in session or 'primary_method' not in session or 'totp' not in session:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
         return True

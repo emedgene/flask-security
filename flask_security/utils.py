@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover
 
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from twilio.rest import TwilioRestClient
 
 from flask import url_for, flash, current_app, request, session, render_template
 from flask_login import login_user as _login_user, logout_user as _logout_user
@@ -31,8 +32,6 @@ from werkzeug.local import LocalProxy
 
 from .signals import user_registered, login_instructions_sent, reset_password_instructions_sent
 
-import twilio
-from twilio.rest import TwilioRestClient
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])

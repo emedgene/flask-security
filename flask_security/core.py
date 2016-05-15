@@ -17,6 +17,7 @@ from flask_principal import Principal, RoleNeed, UserNeed, Identity, \
 from itsdangerous import URLSafeTimedSerializer
 from passlib.context import CryptContext
 from werkzeug.datastructures import ImmutableList
+from werkzeug.exceptions import NotFound
 from werkzeug.local import LocalProxy
 from werkzeug.security import safe_str_cmp
 
@@ -97,7 +98,7 @@ _default_config = {
     'EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE': 'Your password has been changed',
     'EMAIL_SUBJECT_PASSWORD_RESET': 'Password reset instructions',
     'EMAIL_SUBJECT_TWO_FACTOR': 'Two Factor Authentication',
-    'EMAIL_SUBJECT_TWO_FACTOR_RESCUE': 'Two Factor Authenticaion Rescue',
+    'EMAIL_SUBJECT_TWO_FACTOR_RESCUE': 'Two Factor Authentication Rescue',
     'USER_IDENTITY_ATTRIBUTES': ['email'],
     'PASSWORD_SCHEMES': [
         'bcrypt',
@@ -113,7 +114,6 @@ _default_config = {
     'TWO_FACTOR_RESCUE_MAIL': 'no-reply@localhost',
     'TWO_FACTOR_ENABLED_METHODS': ['mail', 'google_authenticator'],  # ,'sms'
     'TWO_FACTOR_URI_SERVICE_NAME': 'serive_name',
-    'TWO_FACTOR_UTI_PROTOCOL': 'totp', # or hotp
     'TWO_FACTOR_SMS_SERVICE': 'Dummy',
     'TWO_FACTOR_SMS_SERVICE_CONFIG': {
         'ACCOUNT_SID': None,
@@ -195,17 +195,13 @@ _default_messages = {
     'TWO_FACTOR_INVALID_TOKEN': (
         'Invalid Token', 'error'),
     'TWO_FACTOR_LOGIN_SUCCESSFUL': (
-        'Your token have been confirmed. You have successfuly logged in', 'success'),
-    'TWO_FACTOR_CHANGE_METHOD_FAILED': (
-        'Invalid password, two factor method was not changed.', 'error'),
+        'Your token have been confirmed', 'success'),
     'TWO_FACTOR_CHANGE_METHOD_SUCCESSFUL': (
         'You successfully changed your two factor method.', 'success'),
     'TWO_FACTOR_PASSWORD_CONFIRMATION_NEEDED': (
         'Password confirmation is needed in order to access page', 'error'),
     'TWO_FACTOR_PERMISSION_DENIED': (
-        'You do not have permissions to access this page at this moment', 'error'),
-    'TWO_FACTOR_BAD_CONFIGURATIONS': (
-        'method was not enabled through configurations', 'error')
+        'You currently do not have permissions to access this page', 'error'),
 }
 
 _default_forms = {
@@ -443,8 +439,8 @@ class Security(object):
                  reset_password_form=None, change_password_form=None,
                  send_confirmation_form=None, passwordless_login_form=None,
                  two_factor_verify_code_form=None, two_factor_setup_form=None,
-                 two_factor_change_method_verify_password_form=None, anonymous_user=None,
-                 two_factor_rescue_form=None):
+                 two_factor_change_method_verify_password_form=None, two_factor_rescue_form=None,
+                 anonymous_user=None):
         """Initializes the Flask-Security extension for the specified
         application and datastore implentation.
 
@@ -483,6 +479,9 @@ class Security(object):
 
         state.render_template = self.render_template
         app.extensions['security'] = state
+
+        if cv('TWO_FACTOR', app=app) is True and len(cv('TWO_FACTOR_ENABLED_METHODS', app=app)) < 1:
+            raise NotFound()
 
         return state
 
