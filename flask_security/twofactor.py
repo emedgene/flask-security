@@ -14,11 +14,10 @@ import pyqrcode
 import onetimepass
 
 from flask import current_app as app, session, redirect
-from werkzeug.exceptions import NotFound
 from werkzeug.local import LocalProxy
 
 from .utils import send_mail, config_value, get_message, url_for_security, do_flash, \
-    SmsSenderFactory, get_post_login_redirect, login_user
+    SmsSenderFactory, login_user
 
 
 # Convenient references
