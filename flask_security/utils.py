@@ -30,7 +30,8 @@ from flask_principal import Identity, AnonymousIdentity, identity_changed
 from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.local import LocalProxy
 
-from .signals import user_registered, login_instructions_sent, reset_password_instructions_sent
+from .signals import user_registered, login_instructions_sent, two_factor_login_instructions_sent, \
+    reset_password_instructions_sent
 
 
 # Convenient references
@@ -399,6 +400,21 @@ def capture_passwordless_login_requests():
         yield login_requests
     finally:
         login_instructions_sent.disconnect(_on)
+
+
+@contextmanager
+def capture_two_factor_login_requests():
+    two_factor_login_requests = []
+
+    def _on(app, **data):
+        two_factor_login_requests.append(data)
+
+    two_factor_login_instructions_sent.connect(_on)
+
+    try:
+        yield two_factor_login_requests
+    finally:
+        two_factor_login_instructions_sent.disconnect(_on)
 
 
 @contextmanager

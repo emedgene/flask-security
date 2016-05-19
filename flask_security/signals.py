@@ -21,6 +21,8 @@ confirm_instructions_sent = signals.signal("confirm-instructions-sent")
 
 login_instructions_sent = signals.signal("login-instructions-sent")
 
+two_factor_login_instructions_sent = signals.signal("two-factor-login-instructions-sent")
+
 password_reset = signals.signal("password-reset")
 
 password_changed = signals.signal("password-changed")

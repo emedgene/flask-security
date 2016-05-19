@@ -135,6 +135,7 @@ def mongoengine_datastore(request, app):
         password = db.StringField(required=False, max_length=255)
         last_login_at = db.DateTimeField()
         current_login_at = db.DateTimeField()
+        two_factor_primary_method = db.StringField(required=None)
         last_login_ip = db.StringField(max_length=100)
         current_login_ip = db.StringField(max_length=100)
         login_count = db.IntField()
@@ -142,6 +143,7 @@ def mongoengine_datastore(request, app):
         confirmed_at = db.DateTimeField()
         roles = db.ListField(db.ReferenceField(Role), default=[])
         meta = {"db_alias": db_name}
+
 
     request.addfinalizer(lambda: db.connection.drop_database(db_name))
 
@@ -173,6 +175,7 @@ def sqlalchemy_datastore(request, app, tmpdir):
         username = db.Column(db.String(255))
         password = db.Column(db.String(255))
         last_login_at = db.Column(db.DateTime())
+        two_factor_primary_method = db.Column(db.String(140), default=None)
         current_login_at = db.Column(db.DateTime())
         last_login_ip = db.Column(db.String(100))
         current_login_ip = db.Column(db.String(100))
@@ -181,6 +184,7 @@ def sqlalchemy_datastore(request, app, tmpdir):
         confirmed_at = db.Column(db.DateTime())
         roles = db.relationship('Role', secondary=roles_users,
                                 backref=db.backref('users', lazy='dynamic'))
+
 
     with app.app_context():
         db.create_all()
@@ -214,6 +218,7 @@ def peewee_datastore(request, app, tmpdir):
         password = TextField(null=True)
         last_login_at = DateTimeField(null=True)
         current_login_at = DateTimeField(null=True)
+        two_factor_primary_method = TextField(defualt=None)
         last_login_ip = TextField(null=True)
         current_login_ip = TextField(null=True)
         login_count = IntegerField(null=True)

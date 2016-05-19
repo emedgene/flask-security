@@ -40,7 +40,9 @@ def create_users(ds, count=None):
              ('dave@lp.com', 'dave', 'password', ['admin', 'editor'], True),
              ('jill@lp.com', 'jill', 'password', ['author'], True),
              ('tiya@lp.com', 'tiya', 'password', [], False),
-             ('jess@lp.com', 'jess', None, [], True)]
+             ('jess@lp.com', 'jess', None, [], True),
+             ('gal@lp.com', 'gal', 'password', [], True)]
+
     count = count or len(users)
 
     for u in users[:count]:

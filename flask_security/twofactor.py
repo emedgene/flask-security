@@ -5,7 +5,7 @@
 
     Flask-Security two_factor module
 
-    :copyright: (c) 2016 by Gal Stainfeld, at Emedgene
+    :copyright: (c) 2016 by Gal Stainfeld.
 """
 
 import base64
@@ -16,6 +16,7 @@ import onetimepass
 from flask import current_app as app, session, redirect
 from werkzeug.local import LocalProxy
 
+from .signals import two_factor_login_instructions_sent
 from .utils import send_mail, config_value, get_message, url_for_security, do_flash, \
     SmsSenderFactory, login_user
 
@@ -37,6 +38,7 @@ def send_security_token(user, method, totp):
     if method == 'mail':
         send_mail(config_value('EMAIL_SUBJECT_TWO_FACTOR'), user.email,
                   'two_factor_instructions', user=user, token=token_to_be_sent)
+        two_factor_login_instructions_sent.send(app._get_current_object(), user=user, login_token=token_to_be_sent)
     elif method == 'sms':
         msg = "Use this code to log in: %s" % token_to_be_sent
         from_number = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['PHONE_NUMBER']
@@ -48,6 +50,7 @@ def send_security_token(user, method, totp):
     elif method == 'google_authenticator':
         # password are generated automatically in the google authenticator app. no need to send anything
         pass
+
 
 
 def get_totp_uri(username, totp):
