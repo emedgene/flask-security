@@ -7,5 +7,3 @@ itsdangerous>=0.17
 passlib>=1.6.4
 onetimepass==1.0.1
 PyQRCode==1.1.1
-twilio==5.4.0
-

@@ -26,7 +26,7 @@ from .views import create_blueprint
 from .forms import LoginForm, ConfirmRegisterForm, RegisterForm, \
     ForgotPasswordForm, ChangePasswordForm, ResetPasswordForm, \
     SendConfirmationForm, PasswordlessLoginForm, TwoFactorVerifyCodeForm, \
-    TwoFactorSetupForm, TwoFactorChangeMethodVerifyPasswordForm, TwoFactorRescueForm
+    TwoFactorSetupForm, TwoFactorVerifyPasswordForm, TwoFactorRescueForm
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])
@@ -64,7 +64,8 @@ _default_config = {
     'TWO_FACTOR_SEND_PHONE_TEMPLATE': 'security/two_factor_enter_phone.html',
     'TWO_FACTOR_VERIFY_CODE_TEMPLATE': 'security/two_factor_verify_code.html',
     'TWO_FACTOR_CHOOSE_METHOD_TEMPLATE': 'security/two_factor_choose_method.html',
-    'TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE': 'security/two_factor_change_method_password_confimration.html',
+    'TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE':
+        'security/two_factor_change_method_password_confimration.html',
     'SEND_LOGIN_TEMPLATE': 'security/send_login.html',
     'CONFIRMABLE': False,
     'REGISTERABLE': False,
@@ -112,8 +113,8 @@ _default_config = {
     ],
     'DEPRECATED_PASSWORD_SCHEMES': ['auto'],
     'TWO_FACTOR_RESCUE_MAIL': 'no-reply@localhost',
-    'TWO_FACTOR_ENABLED_METHODS': ['mail', 'google_authenticator'],  # ,'sms'
-    'TWO_FACTOR_URI_SERVICE_NAME': 'serive_name',
+    'TWO_FACTOR_ENABLED_METHODS': ['mail', 'google_authenticator', 'sms'],
+    'TWO_FACTOR_URI_SERVICE_NAME': 'service_name',
     'TWO_FACTOR_SMS_SERVICE': 'Dummy',
     'TWO_FACTOR_SMS_SERVICE_CONFIG': {
         'ACCOUNT_SID': None,
@@ -195,9 +196,11 @@ _default_messages = {
     'TWO_FACTOR_INVALID_TOKEN': (
         'Invalid Token', 'error'),
     'TWO_FACTOR_LOGIN_SUCCESSFUL': (
-        'Your token have been confirmed', 'success'),
+        'Your token has been confirmed', 'success'),
     'TWO_FACTOR_CHANGE_METHOD_SUCCESSFUL': (
         'You successfully changed your two factor method.', 'success'),
+    'TWO_FACTOR_PASSWORD_CONFIRMATION_DONE': (
+        'You successfully confirmed password', 'success'),
     'TWO_FACTOR_PASSWORD_CONFIRMATION_NEEDED': (
         'Password confirmation is needed in order to access page', 'error'),
     'TWO_FACTOR_PERMISSION_DENIED': (
@@ -215,7 +218,7 @@ _default_forms = {
     'passwordless_login_form': PasswordlessLoginForm,
     'two_factor_verify_code_form': TwoFactorVerifyCodeForm,
     'two_factor_setup_form': TwoFactorSetupForm,
-    'two_factor_change_method_verify_password_form': TwoFactorChangeMethodVerifyPasswordForm,
+    'two_factor_verify_password_form': TwoFactorVerifyPasswordForm,
     'two_factor_rescue_form': TwoFactorRescueForm
 }
 
@@ -439,7 +442,7 @@ class Security(object):
                  reset_password_form=None, change_password_form=None,
                  send_confirmation_form=None, passwordless_login_form=None,
                  two_factor_verify_code_form=None, two_factor_setup_form=None,
-                 two_factor_change_method_verify_password_form=None, two_factor_rescue_form=None,
+                 two_factor_verify_password_form=None, two_factor_rescue_form=None,
                  anonymous_user=None):
         """Initializes the Flask-Security extension for the specified
         application and datastore implentation.
@@ -458,8 +461,7 @@ class Security(object):
 
         identity_loaded.connect_via(app)(_on_identity_loaded)
 
-        state = _get_state(app, datastore,
-                           login_form=login_form,
+        state = _get_state(app, datastore, login_form=login_form,
                            confirm_register_form=confirm_register_form,
                            register_form=register_form,
                            forgot_password_form=forgot_password_form,
@@ -469,7 +471,7 @@ class Security(object):
                            passwordless_login_form=passwordless_login_form,
                            two_factor_verify_code_form=two_factor_verify_code_form,
                            two_factor_setup_form=two_factor_setup_form,
-                           two_factor_change_method_verify_password_form=two_factor_change_method_verify_password_form,
+                           two_factor_verify_password_form=two_factor_verify_password_form,
                            two_factor_rescue_form=two_factor_rescue_form,
                            anonymous_user=anonymous_user)
 
@@ -480,8 +482,23 @@ class Security(object):
         state.render_template = self.render_template
         app.extensions['security'] = state
 
+        # configuration mismatch check
         if cv('TWO_FACTOR', app=app) is True and len(cv('TWO_FACTOR_ENABLED_METHODS', app=app)) < 1:
             raise NotFound()
+
+        if cv('TWO_FACTOR', app=app) is True and cv('PASSWORDLESS', app=app) is True:
+            raise NotFound()
+
+        flag = False
+        try:
+            from twilio.rest import TwilioRestClient
+            flag = True
+        except:
+            pass
+
+        if flag is False and cv('TWO_FACTOR_SMS_SERVICE', app=app) == 'Twilio':
+            raise NotFound()
+
 
         return state
 

@@ -21,7 +21,7 @@ from werkzeug.local import LocalProxy
 from .confirmable import requires_confirmation
 from .utils import verify_and_update_password, get_message, config_value, validate_redirect_url, \
     do_flash
-from .twofactor import verify_totp, get_process_status
+from .twofactor import verify_totp
 
 # Convenient reference
 _datastore = LocalProxy(lambda: current_app.extensions['security'].datastore)
@@ -301,8 +301,9 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
     """The Two Factor token validation form"""
 
     setup = RadioField('Available Methods', choices=[('mail', 'Set Up Using Mail'),
-                                        ('google_authenticator', 'Set Up Using Google Authenticator'),
-                                        ('sms', 'Set Up Using SMS')])
+                                                     ('google_authenticator',
+                                                      'Set Up Using Google Authenticator'),
+                                                     ('sms', 'Set Up Using SMS')])
     phone = StringField(get_form_field_label('phone'))
     submit = SubmitField(get_form_field_label('sumbit'))
 
@@ -311,7 +312,7 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
 
     def validate(self):
         # another validation for the form
-        if not self.data.has_key('setup'):
+        if 'setup' not in self.data:
             return False
         if self.data['setup'] not in config_value('TWO_FACTOR_ENABLED_METHODS'):
             return False
@@ -329,14 +330,22 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
 
     def validate(self):
         # security check - make sure all steps in process up until now were done
-        current_process = get_process_status()
+        # current_process = get_process_status()
+        if 'username' not in session:
+            current_process = False
+        else:
+            if 'password_confirmed' in session and session['password_confirmed'] is True:
+                current_process = 'change_method'
+            else:
+                current_process = 'first_login'
+
         if current_process is False or 'totp' not in session:
             do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
         # make sure that the earlier stages of this flow of action were done
         if 'code' not in self:
             return False
-        # codes sent by sms or mail will be valid for another window cycle (30 seconds from each side of current time)
+        # codes sent by sms or mail will be valid for another window cycle
         if 'primary_method' in session and session['primary_method'] == 'google_authenticator':
             self.window = 0
         else:
@@ -346,16 +355,18 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
             do_flash(*get_message('TWO_FACTOR_INVALID_TOKEN'))
             return False
 
+        self.user = _datastore.find_user(username=session['username'])
+
         return True
 
 
-class TwoFactorChangeMethodVerifyPasswordForm(Form, PasswordFormMixin):
+class TwoFactorVerifyPasswordForm(Form, PasswordFormMixin):
     """The default change password form"""
 
     submit = SubmitField(get_form_field_label('verify_password'))
 
     def validate(self):
-        if not super(TwoFactorChangeMethodVerifyPasswordForm, self).validate():
+        if not super(TwoFactorVerifyPasswordForm, self).validate():
             return False
 
         if not verify_and_update_password(self.password.data, current_user):
@@ -368,8 +379,8 @@ class TwoFactorRescueForm(Form, UserEmailFormMixin):
     """The Two Factor Rescue validation form"""
 
     help_setup = RadioField('Trouble Accessing Your Account?',
-                                choices=[('lost_device', 'Can not access mobile device?'),
-                                         ('no_mail_access', 'Can not access mail account?')])
+                            choices=[('lost_device', 'Can not access mobile device?'),
+                                     ('no_mail_access', 'Can not access mail account?')])
     submit = SubmitField(get_form_field_label('submit'))
 
     def __init__(self, *args, **kwargs):

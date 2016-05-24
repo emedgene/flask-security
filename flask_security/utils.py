@@ -21,7 +21,6 @@ except ImportError:  # pragma: no cover
 
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from twilio.rest import TwilioRestClient
 
 from flask import url_for, flash, current_app, request, session, render_template
 from flask_login import login_user as _login_user, logout_user as _logout_user
@@ -31,7 +30,6 @@ from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.local import LocalProxy
 
 from .signals import user_registered, login_instructions_sent, reset_password_instructions_sent
-
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])
@@ -452,17 +450,6 @@ class SmsSenderBaseClass(object):
         """ Abstract method for sensing sms messages"""
         return
 
-class TwilioSmsSender(SmsSenderBaseClass):
-    def __init__(self):
-        self.account_sid = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['ACCOUNT_SID']
-        self.auth_token = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['AUTH_TOKEN']
-
-    def send_sms(self, from_number, to_number, msg):
-        client = TwilioRestClient(self.account_sid, self.auth_token)
-        client.messages.create(
-            to=to_number,
-            from_=from_number,
-            body=msg,)
 
 class DummySmsSender(SmsSenderBaseClass):
     def send_sms(self, from_number, to_number, msg):
@@ -471,10 +458,30 @@ class DummySmsSender(SmsSenderBaseClass):
 
 class SmsSenderFactory(object):
     senders = {
-        'Twilio': TwilioSmsSender,
+
         'Dummy': DummySmsSender
     }
 
     @classmethod
     def createSender(cls, name, *args, **kwargs):
         return cls.senders[name](*args, **kwargs)
+
+
+try:
+    from twilio.rest import TwilioRestClient
+
+    class TwilioSmsSender(SmsSenderBaseClass):
+        def __init__(self):
+            self.account_sid = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['ACCOUNT_SID']
+            self.auth_token = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['AUTH_TOKEN']
+
+        def send_sms(self, from_number, to_number, msg):
+            client = TwilioRestClient(self.account_sid, self.auth_token)
+            client.messages.create(
+                to=to_number,
+                from_=from_number,
+                body=msg,)
+
+    SmsSenderFactory.senders['Twilio'] = TwilioSmsSender
+except:
+    pass

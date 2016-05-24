@@ -141,6 +141,26 @@ def test_addition_identity_attributes(app, sqlalchemy_datastore):
     assert b'Hello matt@lp.com' in response.data
 
 
+def test_passwordless_and_two_factor_configuration_mismatch(app):
+    app.config['SECURITY_PASSWORDLESS'] = True
+    app.config['SECURITY_TWO_FACTOR'] = True
+
+    client = app.test_client()
+
+    response = client.get('/login')
+    assert response.status_code == 404
+
+
+def test_passwordless_and_two_factor_configuration_mismatch(app):
+    app.config['TWO_FACTOR_ENABLED_METHODS'] = []
+    app.config['SECURITY_TWO_FACTOR'] = True
+
+    client = app.test_client()
+
+    response = client.get('/login')
+    assert response.status_code == 404
+
+
 def test_flash_messages_off(app, sqlalchemy_datastore, get_message):
     init_app_with_options(app, sqlalchemy_datastore, **{
         'SECURITY_FLASH_MESSAGES': False

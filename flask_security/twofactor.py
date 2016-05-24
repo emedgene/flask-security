@@ -42,11 +42,13 @@ def send_security_token(user, method, totp):
         from_number = config_value('TWO_FACTOR_SMS_SERVICE_CONFIG')['PHONE_NUMBER']
         if 'phone_number' in session:
             to_number = session['phone_number']
-            sms_sender = SmsSenderFactory.createSender(config_value('TWO_FACTOR_SMS_SERVICE'))
-            sms_sender.send_sms(from_number=from_number, to_number=to_number, msg=msg)
+        else:
+            to_number = user.phone_number
+        sms_sender = SmsSenderFactory.createSender(config_value('TWO_FACTOR_SMS_SERVICE'))
+        sms_sender.send_sms(from_number=from_number, to_number=to_number, msg=msg)
 
     elif method == 'google_authenticator':
-        # password are generated automatically in the google authenticator app. no need to send anything
+        # password are generated automatically in the google authenticator app
         pass
 
 
@@ -57,6 +59,7 @@ def get_totp_uri(username, totp):
     """
     service_name = config_value('TWO_FACTOR_URI_SERVICE_NAME')
     return 'otpauth://totp/{0}:{1}?secret={2}&issuer={0}'.format(service_name, username, totp)
+
 
 def verify_totp(token, user_totp, window=0):
     """ Verifies token for specific user_totp
@@ -84,9 +87,6 @@ def generate_qrcode():
             and 'username' in session and 'totp' in session:
         username = session['username']
         totp = session['totp']
-        user = _datastore.find_user(username=session['username'])
-        if user is None:
-            return redirect(url_for_security('login'))
         url = pyqrcode.create(get_totp_uri(username, totp))
         from StringIO import StringIO
         stream = StringIO()
@@ -100,16 +100,6 @@ def generate_qrcode():
         do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
         return redirect(url_for_security('login'))
 
-def get_process_status():
-    if 'username' not in session:
-        do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-        current_process = False
-    else:
-        if 'password_confirmed' in session and session['password_confirmed'] == True:
-            current_process = 'change_method'
-        else:
-            current_process = 'first_login'
-    return current_process
 
 def complete_two_factor_process(user):
     user.totp = session['totp']
