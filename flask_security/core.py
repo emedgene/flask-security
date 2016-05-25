@@ -17,7 +17,6 @@ from flask_principal import Principal, RoleNeed, UserNeed, Identity, \
 from itsdangerous import URLSafeTimedSerializer
 from passlib.context import CryptContext
 from werkzeug.datastructures import ImmutableList
-from werkzeug.exceptions import NotFound
 from werkzeug.local import LocalProxy
 from werkzeug.security import safe_str_cmp
 
@@ -26,7 +25,7 @@ from .views import create_blueprint
 from .forms import LoginForm, ConfirmRegisterForm, RegisterForm, \
     ForgotPasswordForm, ChangePasswordForm, ResetPasswordForm, \
     SendConfirmationForm, PasswordlessLoginForm, TwoFactorVerifyCodeForm, \
-    TwoFactorSetupForm, TwoFactorVerifyPasswordForm, TwoFactorRescueForm
+    TwoFactorSetupForm, TwoFactorChangeMethodVerifyPasswordForm, TwoFactorRescueForm
 
 # Convenient references
 _security = LocalProxy(lambda: current_app.extensions['security'])
@@ -205,6 +204,8 @@ _default_messages = {
         'Password confirmation is needed in order to access page', 'error'),
     'TWO_FACTOR_PERMISSION_DENIED': (
         'You currently do not have permissions to access this page', 'error'),
+    'TWO_FACTOR_METHOD_NOT_AVAILABLE': (
+        'Marked method is not valid', 'error'),
 }
 
 _default_forms = {
@@ -218,7 +219,7 @@ _default_forms = {
     'passwordless_login_form': PasswordlessLoginForm,
     'two_factor_verify_code_form': TwoFactorVerifyCodeForm,
     'two_factor_setup_form': TwoFactorSetupForm,
-    'two_factor_verify_password_form': TwoFactorVerifyPasswordForm,
+    'two_factor_change_method_verify_password_form': TwoFactorChangeMethodVerifyPasswordForm,
     'two_factor_rescue_form': TwoFactorRescueForm
 }
 
@@ -442,7 +443,7 @@ class Security(object):
                  reset_password_form=None, change_password_form=None,
                  send_confirmation_form=None, passwordless_login_form=None,
                  two_factor_verify_code_form=None, two_factor_setup_form=None,
-                 two_factor_verify_password_form=None, two_factor_rescue_form=None,
+                 two_factor_change_method_verify_password_form=None, two_factor_rescue_form=None,
                  anonymous_user=None):
         """Initializes the Flask-Security extension for the specified
         application and datastore implentation.
@@ -471,7 +472,8 @@ class Security(object):
                            passwordless_login_form=passwordless_login_form,
                            two_factor_verify_code_form=two_factor_verify_code_form,
                            two_factor_setup_form=two_factor_setup_form,
-                           two_factor_verify_password_form=two_factor_verify_password_form,
+                           two_factor_change_method_verify_password_form
+                           =two_factor_change_method_verify_password_form,
                            two_factor_rescue_form=two_factor_rescue_form,
                            anonymous_user=anonymous_user)
 
@@ -484,10 +486,7 @@ class Security(object):
 
         # configuration mismatch check
         if cv('TWO_FACTOR', app=app) is True and len(cv('TWO_FACTOR_ENABLED_METHODS', app=app)) < 1:
-            raise NotFound()
-
-        if cv('TWO_FACTOR', app=app) is True and cv('PASSWORDLESS', app=app) is True:
-            raise NotFound()
+            raise ValueError()
 
         flag = False
         try:
@@ -497,7 +496,7 @@ class Security(object):
             pass
 
         if flag is False and cv('TWO_FACTOR_SMS_SERVICE', app=app) == 'Twilio':
-            raise NotFound()
+            raise ValueError()
 
 
         return state

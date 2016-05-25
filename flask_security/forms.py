@@ -312,10 +312,15 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
 
     def validate(self):
         # another validation for the form
-        if 'setup' not in self.data:
+        if 'username' not in session:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
-        if self.data['setup'] not in config_value('TWO_FACTOR_ENABLED_METHODS'):
+        if 'setup' not in self.data or self.data['setup'] not in config_value('TWO_FACTOR_ENABLED_METHODS'):
+            do_flash(*get_message('TWO_FACTOR_METHOD_NOT_AVAILABLE'))
             return False
+
+        self.user = _datastore.find_user(username=session['username'])
+
         return True
 
 
@@ -338,12 +343,8 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
                 current_process = 'change_method'
             else:
                 current_process = 'first_login'
-
-        if current_process is False or 'totp' not in session:
+        if current_process is False or 'totp' not in session or 'code' not in self:
             do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-            return False
-        # make sure that the earlier stages of this flow of action were done
-        if 'code' not in self:
             return False
         # codes sent by sms or mail will be valid for another window cycle
         if 'primary_method' in session and session['primary_method'] == 'google_authenticator':
@@ -360,13 +361,14 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
         return True
 
 
-class TwoFactorVerifyPasswordForm(Form, PasswordFormMixin):
+class TwoFactorChangeMethodVerifyPasswordForm(Form, PasswordFormMixin):
     """The default change password form"""
 
     submit = SubmitField(get_form_field_label('verify_password'))
 
     def validate(self):
-        if not super(TwoFactorVerifyPasswordForm, self).validate():
+        if not super(TwoFactorChangeMethodVerifyPasswordForm, self).validate():
+            do_flash(*get_message('INVALID_PASSWORD'))
             return False
 
         if not verify_and_update_password(self.password.data, current_user):

@@ -367,14 +367,16 @@ def two_factor_login():
 
 
 def two_factor_setup_function():
+
     form_class = _security.two_factor_setup_form
+
     if request.json:
         form = form_class(MultiDict(request.json))
     else:
         form = form_class()
 
     if form.validate_on_submit():
-        user = _datastore.find_user(username=session['username'])
+        user = form.user
         # totp and primarty_method are added to session to flag the user's temporary choice
         session['totp'] = generate_totp()
         session['primary_method'] = form['setup'].data
@@ -389,8 +391,8 @@ def two_factor_setup_function():
                                          chosen_method=session['primary_method'],
                                          **_ctx('two_factor_token_validation'))
     if request.json:
-        form.user = current_user
-        return _render_json(form)
+        return _render_json(form, include_user=False)
+
     # same as if form was validated expect it does not contain the user's choice and its effect
     code_form = _security.two_factor_verify_code_form()
     return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
@@ -398,8 +400,6 @@ def two_factor_setup_function():
                                      two_factor_verify_code_form=code_form,
                                      choices=config_value('TWO_FACTOR_ENABLED_METHODS'),
                                      **_ctx('two_factor_setup_function'))
-
-    return redirect(url_for('login'))
 
 
 def two_factor_token_validation():
@@ -416,8 +416,7 @@ def two_factor_token_validation():
             return redirect(get_post_login_redirect())
 
     if request.json:
-        form.user = current_user
-        return _render_json(form)
+        return _render_json(form, include_user=False)
 
     return redirect(url_for('login'))
 
@@ -426,7 +425,7 @@ def two_factor_token_validation():
 def two_factor_change_method_password_confirmation():
     """View function which handles a change second factor method request."""
 
-    form_class = _security.two_factor_verify_password_form
+    form_class = _security.two_factor_change_method_verify_password_form
 
     if request.json:
         form = form_class(MultiDict(request.json))
@@ -450,7 +449,7 @@ def two_factor_change_method_password_confirmation():
 
     return _security.render_template(config_value
                                      ('TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE'),
-                                     two_factor_verify_password_form=form,
+                                     two_factor_change_method_verify_password_form=form,
                                      **_ctx('two_factor_change_method_password_confirmation'))
 
 
@@ -477,8 +476,7 @@ def two_factor_rescue_function():
                       config_value('TWO_FACTOR_RESCUE_MAIL'), 'two_factor_rescue', user=user)
 
     if request.json:
-        form.user = current_user
-        return _render_json(form)
+        return _render_json(form, include_user=False)
 
     code_form = _security.two_factor_verify_code_form()
     return _security.render_template(config_value('TWO_FACTOR_VERIFY_CODE_TEMPLATE'),
