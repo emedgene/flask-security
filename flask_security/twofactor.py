@@ -26,14 +26,14 @@ _security = LocalProxy(lambda: app.extensions['security'])
 _datastore = LocalProxy(lambda: _security.datastore)
 
 
-def send_security_token(user, method, totp):
+def send_security_token(user, method, totp_secret):
     """Sends the security token via email for the specified user.
 
     :param user: The user to send the code to
     :param method: The method in which the code will be sent ('mail' or 'sms') at the moment
     param token: The shared secret used for generating codes
     """
-    token_to_be_sent = get_totp_password(totp)
+    token_to_be_sent = get_totp_password(totp_secret)
     if method == 'mail':
         send_mail(config_value('EMAIL_SUBJECT_TWO_FACTOR'), user.email,
                   'two_factor_instructions', user=user, token=token_to_be_sent)
@@ -52,24 +52,24 @@ def send_security_token(user, method, totp):
         pass
 
 
-def get_totp_uri(username, totp):
+def get_totp_uri(username, totp_secret):
     """ Generate provisioning url for use with the qrcode scanner built into the app
     :param user:
     :return:
     """
     service_name = config_value('TWO_FACTOR_URI_SERVICE_NAME')
-    return 'otpauth://totp/{0}:{1}?secret={2}&issuer={0}'.format(service_name, username, totp)
+    return 'otpauth://totp/{0}:{1}?secret={2}&issuer={0}'.format(service_name, username, totp_secret)
 
 
-def verify_totp(token, user_totp, window=0):
+def verify_totp(token, totp_secret, window=0):
     """ Verifies token for specific user_totp
     :param token - token to be check against user's secret
-    :param user_totp - a uniqe shared secret of the user
+    :param totp_secret - a uniqe shared secret of the user
     :param window - optional, compensate for clock skew, number of intervals to check on
         each side of the current time. (default is 0 - only check the current clock time)
     :return:
     """
-    return onetimepass.valid_totp(token, user_totp, window=window)
+    return onetimepass.valid_totp(token, totp_secret, window=window)
 
 
 def get_totp_password(token):
@@ -84,9 +84,9 @@ def generate_totp():
 def generate_qrcode():
     if 'primary_method' in session and session['primary_method'] == 'google_authenticator' \
             and 'google_authenticator' in config_value('TWO_FACTOR_ENABLED_METHODS') \
-            and 'username' in session and 'totp' in session:
+            and 'username' in session and 'totp_secret' in session:
         username = session['username']
-        totp = session['totp']
+        totp = session['totp_secret']
         url = pyqrcode.create(get_totp_uri(username, totp))
         from StringIO import StringIO
         stream = StringIO()
@@ -102,7 +102,7 @@ def generate_qrcode():
 
 
 def complete_two_factor_process(user):
-    user.totp = session['totp']
+    user.totp = session['totp_secret']
     user.two_factor_primary_method = session['primary_method']
     if 'phone_number' in session:
         user.phone_number = session['phone_number']
@@ -111,7 +111,7 @@ def complete_two_factor_process(user):
     _datastore.put(user)
 
     del session['primary_method']
-    del session['totp']
+    del session['totp_secret']
     del session['username']
 
     # if we are changing two factor method

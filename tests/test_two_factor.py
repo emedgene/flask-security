@@ -167,19 +167,19 @@ def test_two_factor_flag(app, client, get_message):
 
     # Test two factor authentication first login
     data = dict(email="matt@lp.com", password="password")
-    response = client.post('/login', data=data)
+    response = client.post('/login', data=data, follow_redirects=True)
     assert 'Two-factor authentication adds an extra layer of security' in response.data
 
     # check availability of qrcode page when this option is not picked
     qrcode_page_response = client.get('/login/two_factor_qrcode')
-    assert qrcode_page_response.status_code != 200
+    assert qrcode_page_response.status_code == 302
 
     # check availability of qrcode page when this option is picked
     setup_data = dict(setup='google_authenticator')
-    response = client.post('/login/two_factor_setup_function', data=setup_data)
+    response = client.post('/login/two_factor_setup_function', data=setup_data,
+                           follow_redirects=True)
     assert 'Open Google Authenticator on your device' in response.data
-    qrcode_page_response = client.get('/login/two_factor_qrcode')
-    assert qrcode_page_response.status_code == 200
+    qrcode_page_response = client.get('/login/two_factor_qrcode', data=setup_data)
 
     # check appearence of setup page when sms picked and phone number entered
     sms_sender = SmsSenderFactory.createSender('test')

@@ -31,6 +31,10 @@ Core
 ``SECURITY_EMAIL_SENDER``                Specifies the email address to send
                                          emails as. Defaults to
                                          ``no-reply@localhost``.
+``SECURITY_TWO_FACTOR_RESCUE_MAIL``      Specifies the email address users send
+                                         mail to when they can't complete the
+                                         two factor authentication login.
+                                         Defaults to ``no-reply@localhost``.
 ``SECURITY_TOKEN_AUTHENTICATION_KEY``    Specifies the query string parameter to
                                          read when using token authentication.
                                          Defaults to ``auth_token``.
@@ -113,31 +117,48 @@ Template Paths
 
 .. tabularcolumns:: |p{6.5cm}|p{8.5cm}|
 
-======================================== =======================================
-``SECURITY_FORGOT_PASSWORD_TEMPLATE``    Specifies the path to the template for
-                                         the forgot password page. Defaults to
-                                         ``security/forgot_password.html``.
-``SECURITY_LOGIN_USER_TEMPLATE``         Specifies the path to the template for
-                                         the user login page. Defaults to
-                                         ``security/login_user.html``.
-``SECURITY_REGISTER_USER_TEMPLATE``      Specifies the path to the template for
-                                         the user registration page. Defaults to
-                                         ``security/register_user.html``.
-``SECURITY_RESET_PASSWORD_TEMPLATE``     Specifies the path to the template for
-                                         the reset password page. Defaults to
-                                         ``security/reset_password.html``.
-``SECURITY_CHANGE_PASSWORD_TEMPLATE``    Specifies the path to the template for
-                                         the change password page. Defaults to
-                                         ``security/change_password.html``.
-``SECURITY_SEND_CONFIRMATION_TEMPLATE``  Specifies the path to the template for
-                                         the resend confirmation instructions
-                                         page. Defaults to
-                                         ``security/send_confirmation.html``.
-``SECURITY_SEND_LOGIN_TEMPLATE``         Specifies the path to the template for
-                                         the send login instructions page for
-                                         passwordless logins. Defaults to
-                                         ``security/send_login.html``.
-======================================== =======================================
+============================================== =======================================
+``SECURITY_FORGOT_PASSWORD_TEMPLATE``          Specifies the path to the template for
+                                               the forgot password page. Defaults to
+                                               ``security/forgot_password.html``.
+``SECURITY_LOGIN_USER_TEMPLATE``               Specifies the path to the template for
+                                               the user login page. Defaults to
+                                               ``security/login_user.html``.
+``SECURITY_REGISTER_USER_TEMPLATE``            Specifies the path to the template for
+                                               the user registration page. Defaults to
+                                               ``security/register_user.html``.
+``SECURITY_RESET_PASSWORD_TEMPLATE``           Specifies the path to the template for
+                                               the reset password page. Defaults to
+                                               ``security/reset_password.html``.
+``SECURITY_CHANGE_PASSWORD_TEMPLATE``          Specifies the path to the template for
+                                               the change password page. Defaults to
+                                               ``security/change_password.html``.
+``SECURITY_SEND_CONFIRMATION_TEMPLATE``        Specifies the path to the template for
+                                               the resend confirmation instructions
+                                               page. Defaults to
+                                               ``security/send_confirmation.html``.
+``SECURITY_SEND_LOGIN_TEMPLATE``               Specifies the path to the template for
+                                               the send login instructions page for
+                                               passwordless logins. Defaults to
+                                               ``security/send_login.html``.
+``SECURITY_TWO_FACTOR_VERIFY_CODE_TEMPLATE``   Specifies the path to the template for
+                                               the verify code page for the two factor
+                                               authentication process. Defaults to
+                                               ``security/two_factor_verify_code
+                                               .html``.
+
+``SECURITY_TWO_FACTOR_CHOOSE_METHOD_TEMPLT``   Specifies the path to the template for
+                                               the choose method page for the two
+                                               factor authentication process. Defaults
+                                               to ``security/two_factor_choose_method
+                                               .html``
+``SECURITY_TWO_FACTOR_CHANGE_METHOD_TEMPLATE`` Specifies the path to the template for
+                                               the change method page for the two
+                                               factor authentication process. Defaults
+                                               to ``security/two_factor_change_method_
+                                               password_confimration.html``.
+
+============================================== =======================================
 
 
 Feature Flags
@@ -176,6 +197,13 @@ Feature Flags
                           change password endpoint. The URL for this endpoint is
                           specified by the ``SECURITY_CHANGE_URL`` configuration
                           option. Defaults to ``False``.
+``SECURITY_TWO_FACTOR``   Specifies if Flask-Security should enable the
+                          two factor login feature. If set to ``True``, users
+                          are first required to enter a password to start login
+                          login process and then enter a code sent to them using
+                          email, sms or google authenticator app.
+                          experimental and should be used with caution. Defaults
+                          to ``False``.
 ========================= ======================================================
 
 Email
@@ -205,6 +233,12 @@ Email
                                                   confirmation message. Defaults
                                                   to ``Please confirm your
                                                   email``
+``SECURITY_EMAIL_SUBJECT_TWO_FACTOR``             Sets the subject for the two
+                                                  factor feature. Defaults to
+                                                  ``Two Factor Login``
+``SECURITY_EMAIL_SUBJECT_TWO_FACTOR_RESCUE``      Sets the subject for the two
+                                                  factor help function. Defaults
+                                                  to ``Two Factor Rescue``
 ================================================= ==============================
 
 Miscellaneous
@@ -268,6 +302,24 @@ Miscellaneous
 ``SECURITY_DEFAULT_REMEMBER_ME``              Specifies the default "remember
                                               me" value used when logging in
                                               a user. Defaults to ``False``.
+``SECURITY_TWO_FACTOR_ENABLED_METHODS``       Specifies the default enabled
+                                              methods for two factor
+                                              authentication. defaults to
+                                              ``['mail', 'google_authenticator',
+                                              'sms']`` which are the only
+                                              supported method at the moment.
+``SECURITY_TWO_FACTOR_URI_SERVICE_NAME``      Specifies the name of the service
+                                              or application that the user is
+                                              authenticating to. Defaults to
+                                              ``service_name``
+``SECURITY_TWO_FACTOR_SMS_SERVICE``           Specifies the name of the sms
+                                              service provider. Defaults to
+                                              ``Dummy`` which does nothing.
+``SECURITY_TWO_FACTOR_SMS_SERVICE_CONFIG``    Specifies a dictionary of basic
+                                              configurations needed for use of a
+                                              sms service. Defaults to
+                                              ``{'ACCOUNT_ID': NONE, 'AUTH_TOKEN
+                                              ':NONE, 'PHONE_NUMBER': NONE}``
 ============================================= ==================================
 
 Messages
@@ -308,5 +360,12 @@ The default messages and error levels can be found in ``core.py``.
 * ``SECURITY_MSG_PASSWORD_RESET_REQUEST``
 * ``SECURITY_MSG_REFRESH``
 * ``SECURITY_MSG_RETYPE_PASSWORD_MISMATCH``
+* ``SECURITY_MSG_TWO_FACTOR_INVALID_TOKEN``
+* ``SECURITY_MSG_TWO_FACTOR_LOGIN_SUCCESSFUL``
+* ``SECURITY_MSG_TWO_FACTOR_CHANGE_METHOD_SUCCESSFUL``
+* ``SECURITY_MSG_TWO_FACTOR_PASSWORD_CONFIRMATION_DONE``
+* ``SECURITY_MSG_TWO_FACTOR_PASSWORD_CONFIRMATION_NEEDED``
+* ``SECURITY_MSG_TWO_FACTOR_PERMISSION_DENIED``
+* ``SECURITY_MSG_TWO_FACTOR_METHOD_NOT_AVAILABLE``
 * ``SECURITY_MSG_UNAUTHORIZED``
 * ``SECURITY_MSG_USER_DOES_NOT_EXIST``

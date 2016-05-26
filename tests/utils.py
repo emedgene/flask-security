@@ -54,7 +54,7 @@ def create_users(ds, count=None):
         roles = [ds.find_or_create_role(rn) for rn in u[3]]
         ds.commit()
         user = ds.create_user(email=u[0], username=u[1], password=pw, active=u[4],
-                              two_factor_primary_method=u[5], totp=u[6])
+                              two_factor_primary_method=u[5], totp_secret=u[6])
         ds.commit()
         for role in roles:
             ds.add_role_to_user(user, role)

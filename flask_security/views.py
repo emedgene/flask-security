@@ -346,8 +346,8 @@ def two_factor_login():
                                              **_ctx('two_factor_first_login_setup_function'))
         else:
             session['primary_method'] = user.two_factor_primary_method
-            session['totp'] = user.totp
-            send_security_token(user=user, method=user.two_factor_primary_method, totp=user.totp)
+            session['totp_secret'] = user.totp_secret
+            send_security_token(user=user, method=user.two_factor_primary_method, totp_secret=user.totp_secret)
             code_form = _security.two_factor_verify_code_form()
             rescue_form = _security.two_factor_rescue_form()
             return _security.render_template(config_value('TWO_FACTOR_VERIFY_CODE_TEMPLATE'),
@@ -378,11 +378,11 @@ def two_factor_setup_function():
     if form.validate_on_submit():
         user = form.user
         # totp and primarty_method are added to session to flag the user's temporary choice
-        session['totp'] = generate_totp()
+        session['totp_secret'] = generate_totp()
         session['primary_method'] = form['setup'].data
         if len(form.data['phone']) > 0:
             session['phone_number'] = form.data['phone']
-        send_security_token(user=user, method=session['primary_method'], totp=session['totp'])
+        send_security_token(user=user, method=session['primary_method'], totp_secret=session['totp_secret'])
         code_form = _security.two_factor_verify_code_form()
         return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
                                          two_factor_setup_form=form,
@@ -469,7 +469,7 @@ def two_factor_rescue_function():
         problem = form.data['help_setup']
         # if the problem is that user can't access his device, we send him code through mail
         if problem == 'lost_device':
-            send_security_token(user=user, method='mail', totp=user.totp)
+            send_security_token(user=user, method='mail', totp_secret=user.totp_secret)
         # send app provider a mail message regarding trouble
         elif problem == 'no_mail_access':
             send_mail(config_value('EMAIL_SUBJECT_TWO_FACTOR_RESCUE'),

@@ -343,7 +343,7 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
                 current_process = 'change_method'
             else:
                 current_process = 'first_login'
-        if current_process is False or 'totp' not in session or 'code' not in self:
+        if current_process is False or 'totp_secret' not in session or 'code' not in self:
             do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
         # codes sent by sms or mail will be valid for another window cycle
@@ -352,7 +352,7 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
         else:
             self.window = 1
         # verify entered token with user's totp secret
-        if not verify_totp(token=self.code.data, user_totp=session['totp'], window=self.window):
+        if not verify_totp(token=self.code.data, totp_secret=session['totp_secret'], window=self.window):
             do_flash(*get_message('TWO_FACTOR_INVALID_TOKEN'))
             return False
 
@@ -389,7 +389,7 @@ class TwoFactorRescueForm(Form, UserEmailFormMixin):
         super(TwoFactorRescueForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        if 'username' not in session or 'primary_method' not in session or 'totp' not in session:
+        if 'username' not in session or 'primary_method' not in session or 'totp_secret' not in session:
             do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
         return True

@@ -61,6 +61,18 @@ Thus if the user changes his or her password their existing authentication token
 will become invalid. A new token will need to be retrieved using the user's new
 password.
 
+Two Factor Authentication
+-------------------------
+Two factor authentication is enabled by generating time-based one-time passwords.
+Those tokens are generated using the user's totp secret which is unique for user
+and created during the user's first login, and when user wish to change his
+second factor method. the previous totp secret will become invalid.
+The totp tokens for authentication can be sent using mail, sms (providing an sms
+sender service) or by using Google Authenticator. By defualt, tokens sent by
+mail or sms will be valid for 30-60 seconds while password generated in Google
+Authenticator are valid for 0-30 and generated periodically. The QR code used
+with the Google Authenticator is generated using PyQRCode library and rendered
+out as an svg file for scanning.
 
 Email Confirmation
 ------------------
@@ -118,10 +130,13 @@ JSON is supported for the following operations:
 * Confirmation requests
 * Forgot password requests
 * Passwordless login requests
-
+* Two factor login requests
+* Change two factor method requests
 
 .. _Flask-Login: http://packages.python.org/Flask-Login/
 .. _alternative token: http://packages.python.org/Flask-Login/#alternative-tokens
 .. _Flask-Principal: http://packages.python.org/Flask-Principal/
 .. _documentation on this topic: http://packages.python.org/Flask-Principal/#granular-resource-protection
 .. _passlib: http://packages.python.org/passlib/
+.. _onetimepass: https://pypi.python.org/pypi/onetimepass/
+.. _PyQRCode: https://pypi.python.org/pypi/PyQRCode/
