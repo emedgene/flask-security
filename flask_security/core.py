@@ -60,8 +60,6 @@ _default_config = {
     'CHANGE_PASSWORD_TEMPLATE': 'security/change_password.html',
     'SEND_CONFIRMATION_TEMPLATE': 'security/send_confirmation.html',
     'SEND_LOGIN_TEMPLATE': 'security/send_login.html',
-    'TWO_FACTOR_LOGIN_USER_TEMPLATE': 'security/two_factor_login.html',
-    'TWO_FACTOR_SEND_PHONE_TEMPLATE': 'security/two_factor_enter_phone.html',
     'TWO_FACTOR_VERIFY_CODE_TEMPLATE': 'security/two_factor_verify_code.html',
     'TWO_FACTOR_CHOOSE_METHOD_TEMPLATE': 'security/two_factor_choose_method.html',
     'TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE':

@@ -198,12 +198,14 @@ Feature Flags
                           specified by the ``SECURITY_CHANGE_URL`` configuration
                           option. Defaults to ``False``.
 ``SECURITY_TWO_FACTOR``   Specifies if Flask-Security should enable the
-                          two factor login feature. If set to ``True``, users
-                          are first required to enter a password to start login
-                          login process and then enter a code sent to them using
-                          email, sms or google authenticator app.
-                          experimental and should be used with caution. Defaults
-                          to ``False``.
+                          two factor login feature. If set to ``True``, in
+                          addition to their passwords, users will be required to
+                          enter a code that is sent to them. The added feature
+                          includes the ability to send it either via email, sms
+                          message, or Google Authenticator. Default time of
+                          validity is 30 seconds in Google Authenticator and up
+                          to 60 seconds if sent by mail or sms.
+                          Defaults to ``False``.
 ========================= ======================================================
 
 Email

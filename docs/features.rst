@@ -63,16 +63,15 @@ password.
 
 Two Factor Authentication
 -------------------------
-Two factor authentication is enabled by generating time-based one-time passwords.
-Those tokens are generated using the user's totp secret which is unique for user
-and created during the user's first login, and when user wish to change his
-second factor method. the previous totp secret will become invalid.
-The totp tokens for authentication can be sent using mail, sms (providing an sms
-sender service) or by using Google Authenticator. By defualt, tokens sent by
-mail or sms will be valid for 30-60 seconds while password generated in Google
-Authenticator are valid for 0-30 and generated periodically. The QR code used
-with the Google Authenticator is generated using PyQRCode library and rendered
-out as an svg file for scanning.
+Two factor authentication is enabled by generating time-based one time passwords
+(Tokens). The tokens are generated using the users totp secret, which is unique
+per user, and is generated both on first login, and when changing the two-factor
+method.(Doing this causes the previous totp secret to become invalid) The token
+is provided by one of 3 methods - email, sms (service is not provided), or
+Google Authenticator. By default, tokens provided by google authenticator are
+valid for 30 seconds and those sent by for double this time. The QR code used to
+supply Google Authenticator with the secret is generated using the PyQRCode
+library.
 
 Email Confirmation
 ------------------
