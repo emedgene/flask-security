@@ -75,6 +75,9 @@ _default_config = {
     'SEND_PASSWORD_CHANGE_EMAIL': True,
     'SEND_PASSWORD_RESET_NOTICE_EMAIL': True,
     'LOGIN_WITHIN': '1 days',
+    'TWO_FACTOR_GOOGLE_AUTH_VALIDITY': 0,
+    'TWO_FACTOR_MAIL_VALIDITY': 1,
+    'TWO_FACTOR_SMS_VALIDITY': 5,
     'CONFIRM_EMAIL_WITHIN': '5 days',
     'RESET_PASSWORD_WITHIN': '5 days',
     'LOGIN_WITHOUT_CONFIRMATION': False,
@@ -470,8 +473,8 @@ class Security(object):
                            passwordless_login_form=passwordless_login_form,
                            two_factor_verify_code_form=two_factor_verify_code_form,
                            two_factor_setup_form=two_factor_setup_form,
-                           two_factor_change_method_verify_password_form
-                           =two_factor_change_method_verify_password_form,
+                           two_factor_change_method_verify_password_form=
+                           two_factor_change_method_verify_password_form,
                            two_factor_rescue_form=two_factor_rescue_form,
                            anonymous_user=anonymous_user)
 
@@ -483,7 +486,8 @@ class Security(object):
         app.extensions['security'] = state
 
         # configuration mismatch check
-        if cv('TWO_FACTOR', app=app) is True and len(cv('TWO_FACTOR_ENABLED_METHODS', app=app)) < 1:
+        if cv('TWO_FACTOR', app=app) is True and len(cv('TWO_FACTOR_ENABLED_METHODS', app=app))\
+                < 1:
             raise ValueError()
 
         flag = False
@@ -495,7 +499,6 @@ class Security(object):
 
         if flag is False and cv('TWO_FACTOR_SMS_SERVICE', app=app) == 'Twilio':
             raise ValueError()
-
 
         return state
 

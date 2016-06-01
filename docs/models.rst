@@ -60,4 +60,7 @@ additional fields:
 
 * ``totp_secret``
 * ``two_factor_primary_method``
+
+If you include 'sms' in SECURITY_TWO_FACTOR_ENABLED_METHOD, your `User` model
+will require the following additional field:
 * ``phone_number``

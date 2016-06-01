@@ -91,6 +91,8 @@ def login():
 
 def logout():
     """View function which handles a logout request."""
+    if config_value('TWO_FACTOR') is True and 'password_confirmed' in session:
+        del session['password_confirmed']
 
     if current_user.is_authenticated:
         logout_user()
@@ -326,6 +328,7 @@ def change_password():
 @anonymous_user_required
 def two_factor_login():
     """View function for two factor authentication login"""
+    # if we already validated email&password, there is no need to do it again
     form_class = _security.login_form
 
     if request.json:
@@ -333,29 +336,22 @@ def two_factor_login():
     else:
         form = form_class()
 
+    # if user's email&password approved
     if form.validate_on_submit():
         user = form.user
-        session['username'] = user.username
-        if user.two_factor_primary_method is None:
-            setup_form = _security.two_factor_setup_form()
-            code_form = _security.two_factor_verify_code_form()
-            return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
-                                             two_factor_setup_form=setup_form,
-                                             two_factor_verify_code_form=code_form,
-                                             choices=config_value('TWO_FACTOR_ENABLED_METHODS'),
-                                             **_ctx('two_factor_first_login_setup_function'))
+        session['email'] = user.email
+        # if user's two factor properties are not configured
+        if user.two_factor_primary_method is None or user.totp_secret is None:
+            session['has_two_factor'] = False
+            return redirect(url_for('two_factor_setup_function'))
+        # if user's two factor properties are configured
         else:
+            session['has_two_factor'] = True
             session['primary_method'] = user.two_factor_primary_method
             session['totp_secret'] = user.totp_secret
-            send_security_token(user=user, method=user.two_factor_primary_method, totp_secret=user.totp_secret)
-            code_form = _security.two_factor_verify_code_form()
-            rescue_form = _security.two_factor_rescue_form()
-            return _security.render_template(config_value('TWO_FACTOR_VERIFY_CODE_TEMPLATE'),
-                                             two_factor_verify_code_form=code_form,
-                                             two_factor_rescue_form=rescue_form,
-                                             rescue_mail=config_value('TWO_FACTOR_RESCUE_MAIL'),
-                                             method=user.two_factor_primary_method, problem=None,
-                                             ** _ctx('two_factor_token_validation'))
+            send_security_token(user=user, method=user.two_factor_primary_method,
+                                totp_secret=user.totp_secret)
+            return redirect(url_for('two_factor_token_validation'))
 
     if request.json:
         form.user = current_user
@@ -367,7 +363,21 @@ def two_factor_login():
 
 
 def two_factor_setup_function():
+    """View function for two factor setup during login process"""
+    # user's email&password not approved or we are logged in and didn't validate password
+    if 'password_confirmed' not in session:
+        if 'email' not in session or 'has_two_factor' not in session:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+            return redirect(get_post_login_redirect())
 
+        # user's email&password approved and two factor properties were configured before
+        if session['has_two_factor'] is True:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+            return redirect(url_for('two_factor_token_validation'))
+
+        user = _datastore.find_user(email=session['email'])
+    else:
+        user = current_user
     form_class = _security.two_factor_setup_form
 
     if request.json:
@@ -376,24 +386,24 @@ def two_factor_setup_function():
         form = form_class()
 
     if form.validate_on_submit():
-        user = form.user
         # totp and primarty_method are added to session to flag the user's temporary choice
         session['totp_secret'] = generate_totp()
         session['primary_method'] = form['setup'].data
         if len(form.data['phone']) > 0:
             session['phone_number'] = form.data['phone']
-        send_security_token(user=user, method=session['primary_method'], totp_secret=session['totp_secret'])
+        send_security_token(user=user, method=session['primary_method'],
+                            totp_secret=session['totp_secret'])
         code_form = _security.two_factor_verify_code_form()
         return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
                                          two_factor_setup_form=form,
                                          two_factor_verify_code_form=code_form,
                                          choices=config_value('TWO_FACTOR_ENABLED_METHODS'),
                                          chosen_method=session['primary_method'],
-                                         **_ctx('two_factor_token_validation'))
+                                         **_ctx('two_factor_setup_function'))
+
     if request.json:
         return _render_json(form, include_user=False)
 
-    # same as if form was validated expect it does not contain the user's choice and its effect
     code_form = _security.two_factor_verify_code_form()
     return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
                                      two_factor_setup_form=form,
@@ -403,8 +413,21 @@ def two_factor_setup_function():
 
 
 def two_factor_token_validation():
+    """View function for two factor token validation during login process"""
+    # if we are in login process and not changing current two factor method
+    if 'password_confirmed' not in session:
+        # user's email&password not approved or we are logged in and didn't validate password
+        if 'has_two_factor' not in session:
+            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+            return redirect(get_post_login_redirect())
+
+    # make sure user has or has chosen a two factor method before we try to validate
+    if 'totp_secret' not in session or 'primary_method' not in session:
+        do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+        return redirect(url_for('two_factor_setup_function'))
 
     form_class = _security.two_factor_verify_code_form
+
     if request.json:
         form = form_class(MultiDict(request.json))
     else:
@@ -418,44 +441,37 @@ def two_factor_token_validation():
     if request.json:
         return _render_json(form, include_user=False)
 
-    return redirect(url_for('login'))
-
-
-@login_required
-def two_factor_change_method_password_confirmation():
-    """View function which handles a change second factor method request."""
-
-    form_class = _security.two_factor_change_method_verify_password_form
-
-    if request.json:
-        form = form_class(MultiDict(request.json))
-    else:
-        form = form_class()
-
-    if form.validate_on_submit():
-        session['username'] = current_user.username
-        session['password_confirmed'] = True
-        do_flash(get_message('TWO_FACTOR_PASSWORD_CONFIRMATION_DONE'))
-        code_form = _security.two_factor_verify_code_form()
+    # if we were trying to validate a new method
+    if 'password_confirmed' in session or session['has_two_factor'] is False:
         setup_form = _security.two_factor_setup_form()
         return _security.render_template(config_value('TWO_FACTOR_CHOOSE_METHOD_TEMPLATE'),
                                          two_factor_setup_form=setup_form,
-                                         two_factor_verify_code_form=code_form,
+                                         two_factor_verify_code_form=form,
                                          choices=config_value('TWO_FACTOR_ENABLED_METHODS'),
-                                         **_ctx('two_factor_change_method_setup_function'))
-    if request.json:
-        form.user = current_user
-        return _render_json(form)
-
-    return _security.render_template(config_value
-                                     ('TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE'),
-                                     two_factor_change_method_verify_password_form=form,
-                                     **_ctx('two_factor_change_method_password_confirmation'))
+                                         **_ctx('two_factor_setup_function'))
+    # if we were trying to validate an existing method
+    else:
+        rescue_form = _security.two_factor_rescue_form()
+        return _security.render_template(config_value('TWO_FACTOR_VERIFY_CODE_TEMPLATE'),
+                                         two_factor_rescue_form=rescue_form,
+                                         two_factor_verify_code_form=form,
+                                         problem=None,
+                                         **_ctx('two_factor_token_validaion'))
 
 
 @anonymous_user_required
 def two_factor_rescue_function():
     """ Function that handles a situation where user can't enter his two factor validation code"""
+    # user's email&password yet to be approved
+    if 'email' not in session:
+        do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+        return "", 404
+
+    # user's email&password approved and two factor properties were not configured
+    if 'totp_secret' not in session or 'primary_method' not in session:
+        do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
+        return "", 404
+
     form_class = _security.two_factor_rescue_form
 
     if request.json:
@@ -465,15 +481,16 @@ def two_factor_rescue_function():
 
     problem = None
     if form.validate_on_submit():
-        user = _datastore.find_user(username=session['username'])
         problem = form.data['help_setup']
         # if the problem is that user can't access his device, we send him code through mail
         if problem == 'lost_device':
-            send_security_token(user=user, method='mail', totp_secret=user.totp_secret)
+            send_security_token(user=form.user, method='mail', totp_secret=form.user.totp_secret)
         # send app provider a mail message regarding trouble
         elif problem == 'no_mail_access':
             send_mail(config_value('EMAIL_SUBJECT_TWO_FACTOR_RESCUE'),
-                      config_value('TWO_FACTOR_RESCUE_MAIL'), 'two_factor_rescue', user=user)
+                      config_value('TWO_FACTOR_RESCUE_MAIL'), 'two_factor_rescue', user=form.user)
+        else:
+            return "", 404
 
     if request.json:
         return _render_json(form, include_user=False)
@@ -482,8 +499,34 @@ def two_factor_rescue_function():
     return _security.render_template(config_value('TWO_FACTOR_VERIFY_CODE_TEMPLATE'),
                                      two_factor_verify_code_form=code_form,
                                      two_factor_rescue_form=form,
+                                     rescue_mail=config_value('TWO_FACTOR_RESCUE_MAIL'),
                                      problem=str(problem),
-                                     **_ctx('two_factor_rescue_function'))
+                                     **_ctx('two_factor_token_validation'))
+
+
+@login_required
+def two_factor_password_confirmation():
+    """View function which handles a change two factor method request."""
+    form_class = _security.two_factor_change_method_verify_password_form
+
+    if request.json:
+        form = form_class(MultiDict(request.json))
+    else:
+        form = form_class()
+
+    if form.validate_on_submit():
+        session['password_confirmed'] = True
+        do_flash(get_message('TWO_FACTOR_PASSWORD_CONFIRMATION_DONE'))
+        return redirect(url_for('two_factor_setup_function'))
+
+    if request.json:
+        form.user = current_user
+        return _render_json(form)
+
+    return _security.render_template(config_value
+                                     ('TWO_FACTOR_CHANGE_METHOD_PASSWORD_CONFIRMATION_TEMPLATE'),
+                                     two_factor_change_method_verify_password_form=form,
+                                     **_ctx('two_factor_change_method_password_confirmation'))
 
 
 def two_factor_qrcode():
@@ -511,23 +554,21 @@ def create_blueprint(state, import_name):
         bp.route(state.login_url,
                  methods=['GET', 'POST'],
                  endpoint='login')(two_factor_login)
-        bp.route(state.login_url + slash_url_suffix(state.login_url, 'two_factor_setup_function'),
+        bp.route('/' + slash_url_suffix('/', 'two_factor_setup_function'),
                  methods=['GET', 'POST'],
                  endpoint='two_factor_setup_function')(two_factor_setup_function)
-        bp.route(state.login_url + slash_url_suffix(state.login_url,
-                                                    'two_factor_token_validation'),
+        bp.route('/' + slash_url_suffix('/', 'two_factor_token_validation'),
                  methods=['GET', 'POST'],
                  endpoint='two_factor_token_validation')(two_factor_token_validation)
-        bp.route(state.login_url + slash_url_suffix(state.login_url, 'two_factor_qrcode'),
+        bp.route('/' + slash_url_suffix('/', 'two_factor_qrcode'),
                  endpoint='two_factor_qrcode')(two_factor_qrcode)
-        bp.route(state.login_url + slash_url_suffix(state.login_url, 'two_factor_rescue_function'),
+        bp.route('/' + slash_url_suffix('/', 'two_factor_rescue_function'),
                  methods=['GET', 'POST'],
                  endpoint='two_factor_rescue_function')(two_factor_rescue_function)
         bp.route(state.change_url + slash_url_suffix(
-            state.change_url, 'two_factor_change_method_password_confirmation'),
+            state.change_url, 'two_factor_password_confirmation'),
                  methods=['GET', 'POST'],
-                 endpoint='two_factor_change_method_password_confirmation'
-                 )(two_factor_change_method_password_confirmation)
+                 endpoint='two_factor_password_confirmation')(two_factor_password_confirmation)
 
     else:
         bp.route(state.login_url,

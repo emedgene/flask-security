@@ -10,6 +10,7 @@
 """
 
 import inspect
+import os
 
 from flask import request, current_app, flash, session
 from flask_wtf import Form as BaseForm
@@ -311,15 +312,10 @@ class TwoFactorSetupForm(Form, UserEmailFormMixin):
         super(TwoFactorSetupForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        # another validation for the form
-        if 'username' not in session:
-            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-            return False
-        if 'setup' not in self.data or self.data['setup'] not in config_value('TWO_FACTOR_ENABLED_METHODS'):
+        if 'setup' not in self.data or self.data['setup']\
+                not in config_value('TWO_FACTOR_ENABLED_METHODS'):
             do_flash(*get_message('TWO_FACTOR_METHOD_NOT_AVAILABLE'))
             return False
-
-        self.user = _datastore.find_user(username=session['username'])
 
         return True
 
@@ -334,29 +330,27 @@ class TwoFactorVerifyCodeForm(Form, UserEmailFormMixin):
         super(TwoFactorVerifyCodeForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        # security check - make sure all steps in process up until now were done
-        # current_process = get_process_status()
-        if 'username' not in session:
-            current_process = False
+        if 'email' in session:
+            self.user = _datastore.find_user(email=session['email'])
+        elif 'password_confirmed' in session:
+            self.user = current_user
         else:
-            if 'password_confirmed' in session and session['password_confirmed'] is True:
-                current_process = 'change_method'
-            else:
-                current_process = 'first_login'
-        if current_process is False or 'totp_secret' not in session or 'code' not in self:
-            do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-            return False
+            os.abort()
         # codes sent by sms or mail will be valid for another window cycle
-        if 'primary_method' in session and session['primary_method'] == 'google_authenticator':
-            self.window = 0
+        if session['primary_method'] == 'google_authenticator':
+            self.window = config_value('TWO_FACTOR_GOOGLE_AUTH_VALIDITY')
+        elif session['primary_method'] == 'mail':
+            self.window = config_value('TWO_FACTOR_MAIL_VALIDITY')
+        elif session['primary_method'] == 'sms':
+            self.window = config_value('TWO_FACTOR_SMS_VALIDITY')
         else:
-            self.window = 1
-        # verify entered token with user's totp secret
-        if not verify_totp(token=self.code.data, totp_secret=session['totp_secret'], window=self.window):
-            do_flash(*get_message('TWO_FACTOR_INVALID_TOKEN'))
             return False
 
-        self.user = _datastore.find_user(username=session['username'])
+        # verify entered token with user's totp secret
+        if not verify_totp(token=self.code.data, totp_secret=session['totp_secret'],
+                           window=self.window):
+            do_flash(*get_message('TWO_FACTOR_INVALID_TOKEN'))
+            return False
 
         return True
 
@@ -374,6 +368,7 @@ class TwoFactorChangeMethodVerifyPasswordForm(Form, PasswordFormMixin):
         if not verify_and_update_password(self.password.data, current_user):
             self.password.errors.append(get_message('INVALID_PASSWORD')[0])
             return False
+
         return True
 
 
@@ -389,7 +384,11 @@ class TwoFactorRescueForm(Form, UserEmailFormMixin):
         super(TwoFactorRescueForm, self).__init__(*args, **kwargs)
 
     def validate(self):
-        if 'username' not in session or 'primary_method' not in session or 'totp_secret' not in session:
+
+        self.user = _datastore.find_user(email=session['email'])
+
+        if 'primary_method' not in session or 'totp_secret' not in session:
             do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
             return False
+
         return True

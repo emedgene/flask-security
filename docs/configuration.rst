@@ -279,6 +279,28 @@ Miscellaneous
                                               enabled. Always pluralized the
                                               time unit for this value.
                                               Defaults to ``1 days``.
+``SECURITY_TWO_FACTOR_GOOGLE_AUTH_VALIDITY``  Specifies the number of time
+                                              windows user has before the token
+                                              generated for him using google
+                                              authenticator is valid. time
+                                              windows specifies the amount of
+                                              time, which is 30 seconds for each
+                                              window. Default to 0, which is up
+                                              to 30 seconds.
+``SECURITY_TWO_FACTOR_MAIL_VALIDITY``         Specifies the number of time
+                                              windows user has before the token
+                                              sent to him using mail is valid.
+                                              time windows specifies the amount
+                                              of time, which is 30 seconds for
+                                              each window. Default to 1, which
+                                              is up to 60 seconds.
+``SECURITY_TWO_FACTOR_SMS_VALIDITY``         Specifies the number of time
+                                              windows user has before the token
+                                              sent to him using sms is valid.
+                                              time windows specifies the amount
+                                              of time, which is 30 seconds for
+                                              each window. Default to 5, which
+                                              is up to 3 minutes.                                                                                            .
 ``SECURITY_LOGIN_WITHOUT_CONFIRMATION``       Specifies if a user may login
                                               before confirming their email when
                                               the value of
