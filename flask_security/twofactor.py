@@ -117,15 +117,19 @@ def complete_two_factor_process(user):
      and perform action accordingly
     :param user - user's to update in database and log in if necessary
     """
-    user.totp = session['totp_secret']
-    user.two_factor_primary_method = session['primary_method']
+    totp_secret_changed = user.totp_secret != session['totp_secret']
+    if totp_secret_changed or user.two_factor_primary_method != session['primary_method']:
+        user.totp_secret = session['totp_secret']
+        user.two_factor_primary_method = session['primary_method']
+
+        if 'phone_number' in session:
+            user.phone_number = session['phone_number']
+            del session['phone_number']
+
+        _datastore.put(user)
+
     del session['primary_method']
     del session['totp_secret']
-    if 'phone_number' in session:
-        user.phone_number = session['phone_number']
-        del session['phone_number']
-
-    _datastore.put(user)
 
     # if we are changing two factor method
     if 'password_confirmed' in session:

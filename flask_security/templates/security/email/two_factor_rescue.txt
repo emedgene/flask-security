@@ -1,2 +1,2 @@
-{{ user.username }} needs our help!
+{{ user.email }} can not access mail account
 
