@@ -10,7 +10,7 @@
 """
 
 from flask import current_app, redirect, request, jsonify, \
-    after_this_request, Blueprint, session
+    after_this_request, Blueprint, session, abort
 from flask_login import current_user
 from werkzeug.datastructures import MultiDict
 from werkzeug.local import LocalProxy
@@ -465,12 +465,12 @@ def two_factor_rescue_function():
     # user's email&password yet to be approved
     if 'email' not in session:
         do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-        return "", 404
+        return abort(404)
 
     # user's email&password approved and two factor properties were not configured
     if 'totp_secret' not in session or 'primary_method' not in session:
         do_flash(*get_message('TWO_FACTOR_PERMISSION_DENIED'))
-        return "", 404
+        return abort(404)
 
     form_class = _security.two_factor_rescue_form
 

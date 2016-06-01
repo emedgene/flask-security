@@ -13,7 +13,7 @@ import base64
 import pyqrcode
 import onetimepass
 
-from flask import current_app as app, session
+from flask import current_app as app, session, abort
 from flask_login import current_user
 from werkzeug.local import LocalProxy
 
@@ -87,17 +87,17 @@ def generate_totp():
 def generate_qrcode():
     """generate the qrcode for the two factor authentication process"""
     if 'google_authenticator' not in config_value('TWO_FACTOR_ENABLED_METHODS'):
-        return "", 404
+        return abort(404)
     if 'primary_method' not in session or session['primary_method'] != 'google_authenticator' \
             or 'totp_secret' not in session:
-        return "", 404
+        return abort(404)
 
     if 'email' in session:
             email = session['email']
     elif 'password_confirmed' in session:
             email = current_user.email
     else:
-        return "", 404
+        return abort(404)
 
     name = email.split('@')[0]
     totp = session['totp_secret']
