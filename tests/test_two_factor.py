@@ -44,13 +44,27 @@ class TestMail():
         self.count += 1
 
 
-def test_two_factor_flag(app, client):
+def assert_flashes(client, expected_message, expected_category='message'):
+    with client.session_transaction() as session:
+        try:
+            category, message = session['_flashes'][0]
+        except KeyError:
+            raise AssertionError('nothing flashed')
+        assert expected_message in message
+        assert expected_category == category
+
+
+def test_two_factor_two_factor_setup_function_anonymous(app, client):
 
     # trying to pick method without doing earlier stage
     data = dict(setup="mail")
-    response = client.post('/two_factor_setup_function/', data=data, follow_redirects=True)
-    assert 'You currently do not have permissions to access this page' in response.data
+    response = client.post('/two_factor_setup_function/', data=data)
+    assert response.status_code == 302
+    flash_message = 'You currently do not have permissions to access this page'
+    assert_flashes(client, flash_message, expected_category='error')
 
+
+def test_two_factor_flag(app, client):
     # trying to verify code without going through two factor first login function
     wrong_code = '000000'
     response = client.post('/two_factor_token_validation/', data=dict(code=wrong_code),
